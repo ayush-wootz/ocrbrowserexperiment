@@ -26,9 +26,9 @@
     .magnifier-lens {
       position: fixed;
       bottom: 10px;
-      left: 10px;
-      width: 240px;
-      height: 160px;
+      right: 10px;
+      width: 600px;
+      height: 600px;
       border: 1px solid #333;
       border-radius: 10%;
       background: rgba(0, 0, 0, 0.1);
@@ -114,7 +114,7 @@
       });
 
     function setupMagnifier(image) {
-      const zoom = 5;
+      const zoom = 4;
 
       image.addEventListener('load', () => {
         image.addEventListener('mousemove', moveLens);
