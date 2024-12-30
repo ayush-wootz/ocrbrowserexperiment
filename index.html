@@ -25,10 +25,10 @@
 
     .magnifier-lens {
       position: fixed;
-      bottom: 20px;
-      right: 10px;
-      width: 500px;
-      height: 500px;
+      bottom: 10px;
+      left: 10px;
+      width: 240px;
+      height: 160px;
       border: 1px solid #333;
       border-radius: 10%;
       background: rgba(0, 0, 0, 0.1);
@@ -41,6 +41,7 @@
     .cursor-outline {
       position: absolute;
       background: rgba(217, 158, 2, 0.2);
+      border: 1px solid rgba(217, 158, 2, 0.8);
       pointer-events: none;
       display: none;
       z-index: 9998;
@@ -113,7 +114,7 @@
       });
 
     function setupMagnifier(image) {
-      const zoom = 4;
+      const zoom = 5;
 
       image.addEventListener('load', () => {
         image.addEventListener('mousemove', moveLens);
@@ -125,7 +126,7 @@
 
       function moveLens(e) {
         const pos = getCursorPos(e, image);
-        updateLens(pos);
+        updateLensAndOutline(pos);
       }
 
       function triggerOCR(e) {
@@ -133,11 +134,17 @@
         performOCR(pos);
       }
 
-      function updateLens(pos) {
+      function updateLensAndOutline(pos) {
         const bgX = -(pos.x * zoom) + lens.offsetWidth / 2;
         const bgY = -(pos.y * zoom) + lens.offsetHeight / 2;
         lens.style.backgroundPosition = `${bgX}px ${bgY}px`;
         lens.style.display = 'block';
+
+        cursorOutline.style.left = `${pos.x - lens.offsetWidth / (2 * zoom)}px`;
+        cursorOutline.style.top = `${pos.y - lens.offsetHeight / (2 * zoom)}px`;
+        cursorOutline.style.width = `${lens.offsetWidth / zoom}px`;
+        cursorOutline.style.height = `${lens.offsetHeight / zoom}px`;
+        cursorOutline.style.display = 'block';
       }
 
       function getCursorPos(e, image) {
