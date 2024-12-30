@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDF Magnifier with Click-to-Zoom and OCR</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    .magnifier-container {
+      position: relative;
+      width: 100%;
+      max-width: none;
+    }
+
+    #pdfImage {
+      width: 100%;
+      display: block;
+    }
+
+    .magnifier-lens {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      width: 240px;
+      height: 160px;
+      border: 1px solid #333;
+      border-radius: 10%;
+      background: rgba(0, 0, 0, 0.1);
+      pointer-events: none;
+      display: none;
+      background-repeat: no-repeat;
+      z-index: 9999;
+    }
+
+    .cursor-outline {
+      position: absolute;
+      background: rgba(217, 158, 2, 0.2);
+      pointer-events: none;
+      display: none;
+      z-index: 9998;
+    }
+
+    #ocrResult {
+      margin-top: 20px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="magnifier-container">
+    <img id="pdfImage" src="" alt="PDF Page" />
+    <div class="cursor-outline" id="cursorOutline"></div>
+    <div class="magnifier-lens" id="magnifierLens"></div>
+  </div>
+
+  <div id="ocrResult">OCR Result: <span id="ocrText"></span></div>
+
+  <script 
+    src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"
+    referrerpolicy="no-referrer">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js/dist/tesseract.min.js"></script>
+
+  <script>
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+
+    function getPDFUrlFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('pdf');
+    }
+
+    const pdfUrl = getPDFUrlFromQuery() ||
+      'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const pdfImage = document.getElementById('pdfImage');
+    const lens = document.getElementById('magnifierLens');
+    const cursorOutline = document.getElementById('cursorOutline');
+    const ocrTextElement = document.getElementById('ocrText');
+    let pdfDoc = null;
+
+    pdfjsLib.getDocument(pdfUrl).promise
+      .then(pdf => {
+        pdfDoc = pdf;
+        return pdf.getPage(1);
+      })
+      .then(page => {
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        return page.render({
+          canvasContext: ctx,
+          viewport
+        }).promise;
+      })
+      .then(() => {
+        pdfImage.src = canvas.toDataURL('image/png');
+        setupMagnifier(pdfImage);
+      })
+      .catch(err => {
+        console.error('PDF render error:', err);
+        pdfImage.alt = 'Failed to load or render PDF.';
+      });
+
+    function setupMagnifier(image) {
+      const zoom = 5;
+
+      image.addEventListener('load', () => {
+        image.addEventListener('mousemove', moveLens);
+        image.addEventListener('click', triggerOCR);
+        lens.style.backgroundImage = `url(${image.src})`;
+        lens.style.backgroundSize =
+          `${image.width * zoom}px ${image.height * zoom}px`;
+      });
+
+      function moveLens(e) {
+        const pos = getCursorPos(e, image);
+        updateLens(pos);
+      }
+
+      function triggerOCR(e) {
+        const pos = getCursorPos(e, image);
+        performOCR(pos);
+      }
+
+      function updateLens(pos) {
+        const bgX = -(pos.x * zoom) + lens.offsetWidth / 2;
+        const bgY = -(pos.y * zoom) + lens.offsetHeight / 2;
+        lens.style.backgroundPosition = `${bgX}px ${bgY}px`;
+        lens.style.display = 'block';
+      }
+
+      function getCursorPos(e, image) {
+        const rect = image.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+
+      function performOCR(pos) {
+        const cropWidth = lens.offsetWidth / zoom;
+        const cropHeight = lens.offsetHeight / zoom;
+        const cropX = pos.x - cropWidth / 2;
+        const cropY = pos.y - cropHeight / 2;
+
+        const croppedCanvas = document.createElement('canvas');
+        const croppedCtx = croppedCanvas.getContext('2d');
+        croppedCanvas.width = cropWidth;
+        croppedCanvas.height = cropHeight;
+
+        croppedCtx.drawImage(
+          canvas,
+          cropX, cropY, cropWidth, cropHeight,
+          0, 0, cropWidth, cropHeight
+        );
+
+        Tesseract.recognize(
+          croppedCanvas.toDataURL('image/png'),
+          'eng',
+          {
+            logger: info => console.log(info)
+          }
+        ).then(({ data: { text } }) => {
+          ocrTextElement.textContent = text;
+        }).catch(err => {
+          console.error('OCR error:', err);
+          ocrTextElement.textContent = 'Error during OCR';
+        });
+      }
+    }
+  </script>
+</body>
+</html>
